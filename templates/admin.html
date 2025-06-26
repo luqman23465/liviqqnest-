@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Property Management</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Property Management Admin</h1>
+    </header>
+    <main>
+        <h2>Properties List</h2>
+        <a href="{{ url_for('admin_add_property') }}" class="button">Add New Property</a>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for prop in properties %}
+                <tr>
+                    <td>{{ prop.id }}</td>
+                    <td>{{ prop.name }}</td>
+                    <td>{{ prop.price }}</td>
+                    <td>{{ prop.status }}</td>
+                    <td>
+                        <a href="{{ url_for('admin_edit_property', property_id=prop.id) }}" class="button edit">Edit</a>
+                        <form action="{{ url_for('admin_delete_property', property_id=prop.id) }}" method="POST" style="display:inline;">
+                            <button type="submit" class="button delete" onclick="return confirm('Are you sure you want to delete this property?');">Delete</button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">No properties found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </main>
+    <footer>
+        <p>&copy; 2024 Property Admin</p>
+    </footer>
+</body>
+</html>

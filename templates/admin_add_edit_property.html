@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ form_action }} Property - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>{{ form_action }} Property</h1>
+    </header>
+    <main>
+        <form method="POST" action="">
+            <div>
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" value="{{ property_item.name or '' }}" required>
+            </div>
+            <div>
+                <label for="description">Description:</label>
+                <textarea id="description" name="description" required>{{ property_item.description or '' }}</textarea>
+            </div>
+            <div>
+                <label for="price">Price:</label>
+                <input type="number" id="price" name="price" value="{{ property_item.price or '' }}" required step="any">
+            </div>
+            <div>
+                <label for="status">Status:</label>
+                <select id="status" name="status" required>
+                    <option value="sale" {% if property_item.status == 'sale' %}selected{% endif %}>For Sale</option>
+                    <option value="rent" {% if property_item.status == 'rent' %}selected{% endif %}>For Rent</option>
+                </select>
+            </div>
+            <div>
+                <label for="image_url">Image URL (optional):</label>
+                <input type="text" id="image_url" name="image_url" value="{{ property_item.image_url or '' }}">
+                {% if property_item.image_url %}
+                    <img src="{{ url_for('static', filename=property_item.image_url.replace('static/', '')) }}" alt="{{ property_item.name }}" style="max-width: 100px; display: block; margin-top: 5px;">
+                {% elif property_item.id and not property_item.image_url %}
+                     <img src="{{ url_for('static', filename='images/default_' + property_item.id|string + '.jpg') }}" alt="Default image" style="max-width: 100px; display: block; margin-top: 5px;">
+                {% endif %}
+            </div>
+            <div>
+                <button type="submit" class="button">{{ form_action }} Property</button>
+                <a href="{{ url_for('admin_dashboard') }}" class="button grey">Cancel</a>
+            </div>
+        </form>
+    </main>
+    <footer>
+        <p>&copy; 2024 Property Admin</p>
+    </footer>
+</body>
+</html>
