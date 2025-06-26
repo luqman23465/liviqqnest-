@@ -1,9 +1,19 @@
 import sqlite3
-import os # Added os import
-from flask import Flask, jsonify, request, render_template, redirect, url_for, g
+import os
+import jwt # For JWT encoding/decoding
+from datetime import datetime, timedelta, timezone # For JWT expiration
+from flask import Flask, jsonify, request, render_template, redirect, url_for, g, session, flash, make_response
+from werkzeug.security import generate_password_hash, check_password_hash
+import getpass # For securely getting password input from console
 
 app = Flask(__name__)
+app.secret_key = 'dev_secret_key_liviqnest_001' # IMPORTANT: Change this in production!
 DATABASE = 'properties.db'
+
+# Admin credentials will be removed and managed via DB
+# ADMIN_USERNAME = 'admin'
+# ADMIN_PASSWORD = 'password123'
+
 
 # --- Database Utility Functions ---
 def get_db():
@@ -135,14 +145,91 @@ def delete_property_api(property_id):
     except sqlite3.Error as e:
         return jsonify({"message": "Database error", "error": str(e)}), 500
 
-# --- Admin Web Interface Routes (Modified for SQLite) ---
+# --- Admin Authentication Routes ---
+
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if request.method == 'POST':
+        username = request.form['username'].strip()
+        password = request.form['password']
+
+        if not username or not password:
+            flash('Username and password are required.', 'error')
+            return render_template('admin_login.html')
+
+        user = query_db("SELECT * FROM admin_users WHERE username = ?", [username], one=True)
+
+        if user and check_password_hash(user['password_hash'], password):
+            # Create JWT token
+            payload = {
+                'user': user['username'], # Use username from DB
+                'exp': datetime.now(timezone.utc) + timedelta(hours=1)  # Token expires in 1 hour
+            }
+            try:
+                token = jwt.encode(payload, app.secret_key, algorithm='HS256')
+                response = make_response(redirect(url_for('admin_dashboard')))
+                response.set_cookie('admin_jwt_token', token, httponly=True, secure=request.is_secure, samesite='Lax', max_age=3600) # Max age 1 hour
+                flash('Login successful!', 'success')
+                return response
+            except Exception as e:
+                flash(f'Error generating token: {str(e)}', 'error')
+                # Log the exception e
+                print(f"Token generation error: {e}") # For server logs
+        else:
+            flash('Invalid username or password.', 'error')
+    return render_template('admin_login.html')
+
+@app.route('/admin/logout')
+def admin_logout():
+    flash('You have been logged out.', 'info')
+    response = make_response(redirect(url_for('admin_login')))
+    response.set_cookie('admin_jwt_token', '', expires=0, httponly=True, secure=request.is_secure, samesite='Lax') # Clear the cookie
+    return response
+
+# --- Admin Web Interface Routes (Modified for SQLite & Auth) ---
+# Decorator to protect admin routes
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.cookies.get('admin_jwt_token')
+        if not token:
+            flash('Please log in to access this page.', 'warning')
+            return redirect(url_for('admin_login'))
+        try:
+            # Decode the token, this will also verify expiration and signature
+            payload = jwt.decode(token, app.secret_key, algorithms=['HS256'])
+            # You could add more checks here, e.g., if payload['user'] is a valid admin
+            g.admin_user = payload['user'] # Optionally store user info in g for access in route
+        except jwt.ExpiredSignatureError:
+            flash('Your session has expired. Please log in again.', 'error')
+            response = make_response(redirect(url_for('admin_login')))
+            response.set_cookie('admin_jwt_token', '', expires=0) # Clear the expired cookie
+            return response
+        except jwt.InvalidTokenError:
+            flash('Invalid token. Please log in again.', 'error')
+            response = make_response(redirect(url_for('admin_login')))
+            response.set_cookie('admin_jwt_token', '', expires=0) # Clear the invalid cookie
+            return response
+        except Exception as e: # Catch any other decoding errors
+            flash(f'Login error: {str(e)}. Please log in again.', 'error')
+            print(f"JWT decoding error: {e}") # For server logs
+            response = make_response(redirect(url_for('admin_login')))
+            response.set_cookie('admin_jwt_token', '', expires=0) # Clear the cookie
+            return response
+
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/admin')
+@admin_required
 def admin_dashboard():
     properties = query_db('SELECT * FROM properties ORDER BY id DESC')
     return render_template('admin.html', properties=[dict(p) for p in properties])
 
 @app.route('/admin/add', methods=['GET', 'POST'])
+@admin_required
 def admin_add_property():
     if request.method == 'POST':
         name = request.form['name']
@@ -181,6 +268,7 @@ def admin_add_property():
     return render_template('admin_add_edit_property.html', form_action='Add', property_item={})
 
 @app.route('/admin/edit/<int:property_id>', methods=['GET', 'POST'])
+@admin_required
 def admin_edit_property(property_id):
     property_item_dict = None
     if request.method == 'GET':
@@ -228,6 +316,7 @@ def admin_edit_property(property_id):
 
 
 @app.route('/admin/delete/<int:property_id>', methods=['POST'])
+@admin_required
 def admin_delete_property(property_id):
     # Check if property exists before deleting (optional, but good practice)
     property_item = query_db('SELECT * FROM properties WHERE id = ?', [property_id], one=True)
@@ -276,5 +365,48 @@ if __name__ == '__main__':
         #    ])
         #    get_db().commit()
 
+        create_admin_user_if_not_exists()
 
     app.run(debug=True, port=5001)
+
+# --- Admin User Setup ---
+def create_admin_user_if_not_exists():
+    with app.app_context(): # Ensure we have an app context for get_db()
+        db = get_db()
+        cur = db.execute("SELECT COUNT(*) FROM admin_users")
+        admin_exists = cur.fetchone()[0] > 0
+        cur.close()
+
+        if not admin_exists:
+            print("No admin user found. Please create one.")
+            while True:
+                username = input("Enter admin username: ").strip()
+                if not username:
+                    print("Username cannot be empty.")
+                    continue
+                # Check if username already exists (shouldn't happen if table is empty, but good practice)
+                # For this initial setup, we assume it won't if admin_exists is false.
+                break
+
+            while True:
+                password = getpass.getpass("Enter admin password: ")
+                if not password:
+                    print("Password cannot be empty.")
+                    continue
+                password_confirm = getpass.getpass("Confirm admin password: ")
+                if password == password_confirm:
+                    break
+                else:
+                    print("Passwords do not match. Please try again.")
+
+            password_hash = generate_password_hash(password)
+            try:
+                db.execute("INSERT INTO admin_users (username, password_hash) VALUES (?, ?)", (username, password_hash))
+                db.commit()
+                print(f"Admin user '{username}' created successfully.")
+            except sqlite3.IntegrityError: # Should not happen if initial check is robust
+                print(f"Error: Admin user '{username}' may already exist or another integrity constraint failed.")
+            except Exception as e:
+                print(f"An error occurred while creating admin user: {e}")
+        else:
+            print("Admin user already exists.")
