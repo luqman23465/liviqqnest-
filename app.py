@@ -10,9 +10,7 @@ app = Flask(__name__)
 app.secret_key = 'dev_secret_key_liviqnest_001' # IMPORTANT: Change this in production!
 DATABASE = 'properties.db'
 
-# Admin credentials will be removed and managed via DB
-# ADMIN_USERNAME = 'admin'
-# ADMIN_PASSWORD = 'password123'
+
 
 
 # --- Database Utility Functions ---
@@ -336,40 +334,6 @@ def admin_delete_property(property_id):
         print(f"Database error on admin delete: {e}")
         return "Error deleting property from database", 500
 
-
-if __name__ == '__main__':
-    # Ensure DB is initialized (for development convenience)
-    # A better approach for prod is the CLI 'flask initdb'
-    import os
-    if not os.path.exists(DATABASE):
-        print(f"Database {DATABASE} not found. Initializing...")
-        init_db() # This needs to be callable without active request context if run here
-                  # Or simply run `flask initdb` manually first.
-                  # For simplicity here, we assume manual `flask initdb` or it's handled by `get_db` implicitly creating the file.
-                  # The `init_db` function as written needs an app_context.
-                  # A common pattern is to check and init within the first request or before first request.
-
-    # To ensure `init_db` can be called if the DB doesn't exist when the app starts:
-    # We can't call init_db() directly here as it needs app_context.
-    # One way:
-    with app.app_context():
-        if not os.path.exists(DATABASE):
-            init_db() # Initialize DB if it doesn't exist
-        # You could also add some default data here if the DB is newly created and empty
-        # c = get_db().cursor()
-        # if c.execute("SELECT COUNT(*) FROM properties").fetchone()[0] == 0:
-        #    print("Adding initial data...")
-        #    get_db().executemany("INSERT INTO properties (name, description, price, status, image_url) VALUES (?,?,?,?,?)", [
-        #        ("Luxury Villa", "A beautiful villa with a sea view.", 1200000, "sale", "static/images/villa.jpg"),
-        #        ("Cozy Apartment", "A cozy apartment in the city center.", 2500, "rent", "static/images/apartment.jpg")
-        #    ])
-        #    get_db().commit()
-
-        create_admin_user_if_not_exists()
-
-    app.run(debug=True, port=5001)
-
-# --- Admin User Setup ---
 def create_admin_user_if_not_exists():
     with app.app_context(): # Ensure we have an app context for get_db()
         db = get_db()
@@ -410,3 +374,37 @@ def create_admin_user_if_not_exists():
                 print(f"An error occurred while creating admin user: {e}")
         else:
             print("Admin user already exists.")
+
+if __name__ == '__main__':
+    # Ensure DB is initialized (for development convenience)
+    # A better approach for prod is the CLI 'flask initdb'
+    import os
+    if not os.path.exists(DATABASE):
+        print(f"Database {DATABASE} not found. Initializing...")
+        init_db() # This needs to be callable without active request context if run here
+                  # Or simply run `flask initdb` manually first.
+                  # For simplicity here, we assume manual `flask initdb` or it's handled by `get_db` implicitly creating the file.
+                  # The `init_db` function as written needs an app_context.
+                  # A common pattern is to check and init within the first request or before first request.
+
+    # To ensure `init_db` can be called if the DB doesn't exist when the app starts:
+    # We can't call init_db() directly here as it needs app_context.
+    # One way:
+    with app.app_context():
+        if not os.path.exists(DATABASE):
+            init_db() # Initialize DB if it doesn't exist
+        # You could also add some default data here if the DB is newly created and empty
+        # c = get_db().cursor()
+        # if c.execute("SELECT COUNT(*) FROM properties").fetchone()[0] == 0:
+        #    print("Adding initial data...")
+        #    get_db().executemany("INSERT INTO properties (name, description, price, status, image_url) VALUES (?,?,?,?,?)", [
+        #        ("Luxury Villa", "A beautiful villa with a sea view.", 1200000, "sale", "static/images/villa.jpg"),
+        #        ("Cozy Apartment", "A cozy apartment in the city center.", 2500, "rent", "static/images/apartment.jpg")
+        #    ])
+        #    get_db().commit()
+
+        create_admin_user_if_not_exists()
+
+    app.run(debug=True, port=5001)
+
+# --- Admin User Setup ---
