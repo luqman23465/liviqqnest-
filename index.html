@@ -6,7 +6,8 @@
     <title>LiviqNest - Find Your Dream Home</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css">
+    <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -16,12 +17,21 @@
             background-size: cover;
             background-position: center;
         }
-        #house-viewer {
+        #panorama-container {
             width: 100%;
-            height: 400px;
-            background-color: #f0f0f0;
-            border-radius: 0.5rem;
-            cursor: grab;
+            height: 500px;
+        }
+
+        @media (max-width: 768px) {
+            #panorama-container {
+                height: 400px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            #panorama-container {
+                height: 300px;
+            }
         }
     </style>
 </head>
@@ -84,14 +94,14 @@
         </div>
     </section>
 
-    <!-- 3D House Viewer Section -->
+    <!-- 360-degree Panorama Viewer Section -->
     <section class="py-16 bg-white">
         <div class="container mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center mb-12">
-                <h2 class="text-3xl font-bold text-gray-900">Experience Homes in 3D</h2>
-                <p class="text-lg text-gray-600 mt-2">Rotate and explore a model of our featured property.</p>
+                <h2 class="text-3xl font-bold text-gray-900">Immersive 360° Home Tour</h2>
+                <p class="text-lg text-gray-600 mt-2">Step inside and explore every corner of our featured property.</p>
             </div>
-            <div id="house-viewer"></div>
+            <div id="panorama-container" style="width: 100%; height: 500px;"></div>
         </div>
     </section>
 
@@ -206,116 +216,16 @@
             mobileMenu.classList.toggle('hidden');
         });
 
-        // --- 3D House Viewer (Three.js) ---
-        window.onload = function() {
-            const container = document.getElementById('house-viewer');
-            if (!container) return;
-
-            // Scene setup
-            const scene = new THREE.Scene();
-            scene.background = new THREE.Color(0xf0f0f0);
-            
-            // Camera setup
-            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.z = 5;
-
-            // Renderer setup
-            const renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            container.appendChild(renderer.domElement);
-            
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-            scene.add(ambientLight);
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 10, 7.5);
-            scene.add(directionalLight);
-
-            // House Model (simple representation)
-            const house = new THREE.Group();
-
-            // Main building
-            const mainGeom = new THREE.BoxGeometry(2.5, 2, 3);
-            const mainMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            const mainBuilding = new THREE.Mesh(mainGeom, mainMat);
-            house.add(mainBuilding);
-
-            // Roof
-            const roofGeom = new THREE.ConeGeometry(2.2, 1, 4);
-            const roofMat = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
-            const roof = new THREE.Mesh(roofGeom, roofMat);
-            roof.position.y = 1.5;
-            roof.rotation.y = Math.PI / 4;
-            house.add(roof);
-
-            // Door
-            const doorGeom = new THREE.BoxGeometry(0.5, 1, 0.1);
-            const doorMat = new THREE.MeshStandardMaterial({ color: 0x654321 });
-            const door = new THREE.Mesh(doorGeom, doorMat);
-            door.position.set(0, -0.5, 1.5);
-            house.add(door);
-
-            scene.add(house);
-
-            // --- Interactivity ---
-            let isDragging = false;
-            let previousMousePosition = { x: 0, y: 0 };
-
-            container.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                container.style.cursor = 'grabbing';
-            });
-            window.addEventListener('mouseup', () => {
-                isDragging = false;
-                container.style.cursor = 'grab';
-            });
-            container.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                const deltaMove = {
-                    x: e.offsetX - previousMousePosition.x,
-                    y: e.offsetY - previousMousePosition.y
-                };
-                
-                house.rotation.y += deltaMove.x * 0.01;
-                house.rotation.x += deltaMove.y * 0.01;
-                
-                previousMousePosition = { x: e.offsetX, y: e.offsetY };
-            });
-
-            // Handle touch events for mobile
-            container.addEventListener('touchstart', (e) => {
-                isDragging = true;
-                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }, { passive: true });
-            container.addEventListener('touchend', () => {
-                isDragging = false;
-            });
-            container.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
-                 const deltaMove = {
-                    x: e.touches[0].clientX - previousMousePosition.x,
-                    y: e.touches[0].clientY - previousMousePosition.y
-                };
-                house.rotation.y += deltaMove.x * 0.01;
-                house.rotation.x += deltaMove.y * 0.01;
-                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }, { passive: true });
-
-
-            // Animation loop
-            function animate() {
-                requestAnimationFrame(animate);
-                renderer.render(scene, camera);
-            }
-            animate();
-            
-            // Handle window resize
-            window.addEventListener('resize', () => {
-                camera.aspect = container.clientWidth / container.clientHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(container.clientWidth, container.clientHeight);
-            });
-        }
+        // --- Pannellum 360-degree Viewer ---
+        pannellum.viewer('panorama-container', {
+            "type": "equirectangular",
+            // IMPORTANT: Replace this with the URL of your 360-degree image
+            "panorama": "AUDCHF_2024-06-21_00-56-21.png",
+            "autoLoad": true,
+            "autoRotate": -2,
+            "showControls": true,
+            "hotSpotDebug": false
+        });
     </script>
 
 </body>
